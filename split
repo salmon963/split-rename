@@ -1,0 +1,115 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+// 將中文數字轉換為阿拉伯數字
+int chinese_to_digit(const char *chinese_num) {
+    int result = 0;
+    const char *ten_ptr = strstr(chinese_num, "十");
+    if (ten_ptr) {
+        // 處理十位數部分
+        if (ten_ptr == chinese_num) {  
+            result += 10;
+        } 
+        // 處理個位數部分
+        if (*(ten_ptr + strlen("十")) != '\0') {
+            result += chinese_to_digit(ten_ptr + strlen("十"));
+        }
+    } else {
+        if (strcmp(chinese_num, "一") == 0) return 1;
+        if (strcmp(chinese_num, "二") == 0) return 2;
+        if (strcmp(chinese_num, "三") == 0) return 3;
+        if (strcmp(chinese_num, "四") == 0) return 4;
+        if (strcmp(chinese_num, "五") == 0) return 5;
+        if (strcmp(chinese_num, "六") == 0) return 6;
+        if (strcmp(chinese_num, "七") == 0) return 7;
+        if (strcmp(chinese_num, "八") == 0) return 8;
+        if (strcmp(chinese_num, "九") == 0) return 9;
+        if (strcmp(chinese_num, "十") == 0) return 10;  
+    }
+    return result;
+}
+
+// 將文本按段落和句子分割並保存到不同文件的函數
+void splitTextByParagraph(const char *txtPath) {
+    FILE *inputFile = fopen(txtPath, "r");
+    if (inputFile == NULL) {
+        perror("無法打開文件");
+        return;
+    }
+
+    char line[1024];
+    int paragraph_num = 0, sentence_num = 0;
+    FILE *outputFile = NULL;
+    char output_filename[50];
+
+    while (fgets(line, sizeof(line), inputFile) != NULL) {
+        // 檢查是否為新段落的開始
+        const char *para_ptr = strstr(line, "段落");
+        const char *sent_ptr = strstr(line, "第");
+        const char *sent_end_ptr = strstr(line, "句");
+
+        // 若找到 "段落"、"第" 和 "句" 關鍵字，表示是新段落和句子的開始
+        if (para_ptr && sent_ptr && sent_end_ptr && sent_ptr < sent_end_ptr) {
+            // 提取段落編號
+            char paragraph_chinese[10] = {0};
+            const char *para_end_ptr = strstr(para_ptr, "，"); // 找到 "段落" 後的 "，" 作為結束標記
+            if (para_end_ptr) {
+                strncpy(paragraph_chinese, para_ptr + strlen("段落"), para_end_ptr - (para_ptr + strlen("段落")));
+                paragraph_chinese[para_end_ptr - (para_ptr + strlen("段落"))] = '\0';
+                paragraph_num = chinese_to_digit(paragraph_chinese);
+            } else {
+                continue;
+            }
+
+            // 提取句子編號
+            char sentence_chinese[10] = {0};
+            strncpy(sentence_chinese, sent_ptr + strlen("第"), sent_end_ptr - (sent_ptr + strlen("第")));
+            sentence_chinese[sent_end_ptr - (sent_ptr + strlen("第"))] = '\0';
+            sentence_num = chinese_to_digit(sentence_chinese);
+
+            // 關閉上一個段落的輸出文件
+            if (outputFile != NULL) {
+                fclose(outputFile);
+            }
+
+            // 根據段落和句子編號生成新的檔案名稱
+            snprintf(output_filename, sizeof(output_filename), "xs10%d0%d.txt", paragraph_num, sentence_num);
+            outputFile = fopen(output_filename, "w");
+
+            if (outputFile == NULL) {
+                perror("無法創建輸出文件");
+                fclose(inputFile);
+                return;
+            }
+
+            printf("創建文件: %s\n", output_filename); // 顯示創建的文件名
+        }
+
+        // 將當前行寫入當前的輸出文件
+        if (outputFile != NULL) {
+            fputs(line, outputFile);
+        }
+    }
+
+    // 關閉最後一個段落的輸出文件
+    if (outputFile != NULL) {
+        fclose(outputFile);
+    }
+
+    // 關閉輸入文件
+    fclose(inputFile);
+}
+
+// 主函數
+int main() {
+    char txtPath[256];
+
+    printf("請輸入文字檔案的路徑：");
+    scanf("%255s", txtPath);
+
+    splitTextByParagraph(txtPath);
+
+    printf("文字檔已按照段落和句子輸出至各自的檔案\n");
+    return 0;
+}
