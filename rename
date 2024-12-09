@@ -1,0 +1,99 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
+
+// 將中文數字轉換為阿拉伯數字
+int chinese_to_digit(const char *chinese_num) {
+    int result = 0;
+    const char *ten_ptr = strstr(chinese_num, "十"); // 尋找「十」在字串中的位置
+    if (ten_ptr) {
+        // 處理十位數部分
+        result += 10;
+
+        // 處理個位數部分
+        if (*(ten_ptr + strlen("十")) != '\0') {
+            result += chinese_to_digit(ten_ptr + strlen("十"));
+        }
+    } else {
+        // 處理純個位數
+        if (strcmp(chinese_num, "一") == 0) return 1;
+        if (strcmp(chinese_num, "二") == 0) return 2;
+        if (strcmp(chinese_num, "三") == 0) return 3;
+        if (strcmp(chinese_num, "四") == 0) return 4;
+        if (strcmp(chinese_num, "五") == 0) return 5;
+        if (strcmp(chinese_num, "六") == 0) return 6;
+        if (strcmp(chinese_num, "七") == 0) return 7;
+        if (strcmp(chinese_num, "八") == 0) return 8;
+        if (strcmp(chinese_num, "九") == 0) return 9;
+        if (strcmp(chinese_num, "十") == 0) return 10;
+    }
+    return result;
+}
+
+// 更改檔案名稱並記錄錯誤訊息
+void rename_file(const char* input_folder, const char* filename) {
+    char paragraph[10] = {0}, sentence[10] = {0};
+    int paragraph_num = 0, sentence_num = 0;
+
+    const char *para_ptr = strstr(filename, "段落");
+    const char *sent_ptr = strstr(filename, "第");
+    const char *sent_end_ptr = strstr(filename, "句");
+
+    if (para_ptr && sent_ptr && sent_end_ptr && sent_ptr < sent_end_ptr) {
+        strncpy(paragraph, para_ptr + strlen("段落"), sent_ptr - (para_ptr + strlen("段落")));
+        paragraph[sent_ptr - (para_ptr + strlen("段落"))] = '\0';
+        paragraph_num = chinese_to_digit(paragraph);
+
+        strncpy(sentence, sent_ptr + strlen("第"), sent_end_ptr - (sent_ptr + strlen("第")));
+        sentence[sent_end_ptr - (sent_ptr + strlen("第"))] = '\0';
+        sentence_num = chinese_to_digit(sentence);
+    } else {
+        printf("檔案名稱格式錯誤: %s\n", filename);
+        return;
+    }
+
+    if (paragraph_num == 0 || sentence_num == 0) {
+        printf("無效的數字轉換結果於檔案: %s\n", filename);
+        return;
+    }
+
+    char new_filename[30];
+    // 修正段落和句子補零的邏輯
+    snprintf(new_filename, sizeof(new_filename), "xs1%02d%02d.wav", paragraph_num, sentence_num);
+
+    char old_filepath[256], new_filepath[256];
+    snprintf(old_filepath, sizeof(old_filepath), "%s/%s", input_folder, filename);
+    snprintf(new_filepath, sizeof(new_filepath), "%s/%s", input_folder, new_filename);
+
+    if (rename(old_filepath, new_filepath) == 0) {
+        printf("檔案已重新命名為: %s\n", new_filename);
+    } else {
+        perror("無法重新命名檔案");
+    }
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "請提供資料夾路徑\n");
+        return 1;
+    }
+
+    const char *input_folder = argv[1];
+
+    DIR *dp = opendir(input_folder);
+    if (dp == NULL) {
+        perror("無法打開資料夾");
+        return 1;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dp))) {
+        if (strstr(entry->d_name, ".wav")) {
+            rename_file(input_folder, entry->d_name);
+        }
+    }
+
+    closedir(dp);
+    return 0;
+}
